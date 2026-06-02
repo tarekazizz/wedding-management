@@ -699,7 +699,7 @@
           </div>
           <div class="form-group">
             <label>Category</label>
-            <select id="e-cat">
+            <select id="e-cat" onchange="toggleCustomExpense()">
               <option value="Clothing">Clothing</option>
               <option value="Food">Food</option>
               <option value="Decoration">Decoration</option>
@@ -960,456 +960,865 @@
 
 <script>
 // ════════════════════════════
-//  DATA STORE
+//  DATA STORE WITH ERROR HANDLING
 // ════════════════════════════
+let currentEditType = null;
+let currentEditId = null;
+let expenseChart = null;
+
+function loadData(key) {
+  try {
+    const data = localStorage.getItem('wms_' + key);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('Storage error loading ' + key + ':', e);
+    return [];
+  }
+}
+
 let db = {
-  guests:     JSON.parse(localStorage.getItem('wms_guests'))     || [],
-  expenses:   JSON.parse(localStorage.getItem('wms_expenses'))   || [],
-  clothing:   JSON.parse(localStorage.getItem('wms_clothing'))   || [],
-  food:       JSON.parse(localStorage.getItem('wms_food'))       || [],
-  decoration: JSON.parse(localStorage.getItem('wms_decoration')) || [],
+  guests:     loadData('guests'),
+  expenses:   loadData('expenses'),
+  clothing:   loadData('clothing'),
+  food:       loadData('food'),
+  decoration: loadData('decoration'),
 };
-function save(key){ localStorage.setItem('wms_'+key, JSON.stringify(db[key])); }
-function ts(){ return new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
-function fmtNum(n){ return Number(n).toLocaleString(); }
+
+function save(key) {
+  try {
+    localStorage.setItem('wms_' + key, JSON.stringify(db[key]));
+  } catch (e) {
+    alert('Error saving data: ' + e.message);
+  }
+}
+
+function ts() { 
+  return new Date().toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function fmtNum(n) { 
+  return Number(n).toLocaleString();
+}
+
+// ════════════════════════════
+//  VALIDATION
+// ════════════════════════════
+function showError(msg) {
+  alert('⚠️ ' + msg);
+}
+
+function validateRequired(value, label) {
+  if (!value || (typeof value === 'string' && value.trim() === '')) {
+    showError(label + ' is required');
+    return false;
+  }
+  return true;
+}
+
+function validateNumber(value, label, allowZero = true) {
+  const num = Number(value);
+  if (isNaN(num)) {
+    showError(label + ' must be a valid number');
+    return false;
+  }
+  if (!allowZero && num <= 0) {
+    showError(label + ' must be greater than 0');
+    return false;
+  }
+  if (num < 0) {
+    showError(label + ' cannot be negative');
+    return false;
+  }
+  return true;
+}
 
 // ════════════════════════════
 //  NAVIGATION
 // ════════════════════════════
-function goPage(id){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  document.querySelector(`nav a[data-page="${id}"]`).classList.add('active');
-  window.scrollTo(0,0);
-  if(id==='home') updateHomeStats();
-  if(id==='expenses') renderExpenseChart();
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const navLink = document.querySelector(`nav a[data-page="${id}"]`);
+  if (navLink) navLink.classList.add('active');
+  window.scrollTo(0, 0);
+  
+  if (id === 'home') updateHomeStats();
+  if (id === 'guests') renderGuests();
+  if (id === 'expenses') { renderExpenses(); setTimeout(() => renderExpenseChart(), 100); }
+  if (id === 'clothing') renderClothing();
+  if (id === 'food') renderFood();
+  if (id === 'decoration') renderDecoration();
 }
-document.querySelectorAll('nav a').forEach(a=>{
-  a.addEventListener('click',()=>goPage(a.dataset.page));
+
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', () => goPage(a.dataset.page));
 });
+
+// ════════════════════════════
+//  CUSTOM EXPENSE TOGGLE
+// ════════════════════════════
+function toggleCustomExpense() {
+  const category = document.getElementById('e-cat').value;
+  document.getElementById('e-custom-wrap').style.display = 
+    category === 'Custom' ? 'block' : 'none';
+}
 
 // ════════════════════════════
 //  HOME STATS
 // ════════════════════════════
-function updateHomeStats(){
+function updateHomeStats() {
   document.getElementById('stat-guests').textContent = db.guests.length;
-  const total = db.expenses.reduce((s,e)=>s+Number(e.amount),0)
-              + db.clothing.reduce((s,e)=>s+Number(e.qty)*Number(e.cost),0)
-              + db.food.reduce((s,e)=>s+Number(e.cost),0)
-              + db.decoration.reduce((s,e)=>s+Number(e.cost),0);
-  document.getElementById('stat-expenses').textContent = '৳'+fmtNum(total);
+  
+  const total = 
+    db.expenses.reduce((s, e) => s + Number(e.amount), 0) +
+    db.clothing.reduce((s, e) => s + Number(e.qty) * Number(e.cost), 0) +
+    db.food.reduce((s, e) => s + Number(e.cost), 0) +
+    db.decoration.reduce((s, e) => s + Number(e.cost), 0);
+  
+  document.getElementById('stat-expenses').textContent = '৳' + fmtNum(Math.round(total));
   document.getElementById('stat-food').textContent = db.food.length;
 }
 
 // ════════════════════════════
-//  GUESTS
+//  GUESTS MANAGEMENT
 // ════════════════════════════
-function addGuest(){
-  const name=document.getElementById('g-name').value.trim();
-  const fam=document.getElementById('g-family').value||1;
-  const phone=document.getElementById('g-phone').value.trim();
-  const rel=document.getElementById('g-relation').value;
-  if(!name){alert('Please enter guest name');return;}
-  db.guests.push({id:Date.now(),name,family:Number(fam),phone,relation:rel,date:ts()});
-  save('guests'); renderGuests();
-  ['g-name','g-phone'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('g-family').value='';
-}
-function renderGuests(){
-  const tb=document.getElementById('guests-tbody');
-  const empty=document.getElementById('guests-empty');
-  if(!db.guests.length){tb.innerHTML='';empty.style.display='block';
-    document.getElementById('g-total-guests').textContent='0';
-    document.getElementById('g-total-members').textContent='0'; return;}
-  empty.style.display='none';
-  const totalFam=db.guests.reduce((s,g)=>s+Number(g.family),0);
-  document.getElementById('g-total-guests').textContent=db.guests.length;
-  document.getElementById('g-total-members').textContent=totalFam;
-  tb.innerHTML=db.guests.map((g,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td><strong>${g.name}</strong></td>
-      <td>${g.relation}</td>
-      <td>${g.family}</td>
-      <td>${g.phone||'—'}</td>
-      <td class="date-badge">${g.date}</td>
-      <td><div class="actions">
-        <button class="btn-sm btn-edit" onclick="editGuest(${g.id})">Edit</button>
-        <button class="btn-sm btn-del" onclick="delGuest(${g.id})">Del</button>
-      </div></td>
-    </tr>`).join('');
-}
-function delGuest(id){
-  if(!confirm('Delete this guest?'))return;
-  db.guests=db.guests.filter(g=>g.id!==id); save('guests'); renderGuests();
-}
+function addGuest() {
+  const name = document.getElementById('g-name').value.trim();
+  const family = document.getElementById('g-family').value;
+  const phone = document.getElementById('g-phone').value.trim();
+  const relation = document.getElementById('g-relation').value;
 
-// ════════════════════════════
-//  EXPENSES
-// ════════════════════════════
-document.getElementById('e-cat').addEventListener('change',function(){
-  document.getElementById('e-custom-wrap').style.display=this.value==='Custom'?'block':'none';
-});
-function addExpense(){
-  const desc=document.getElementById('e-desc').value.trim();
-  const amount=document.getElementById('e-amount').value;
-  let cat=document.getElementById('e-cat').value;
-  if(cat==='Custom') cat=document.getElementById('e-custom').value.trim()||'Custom';
-  if(!desc||!amount){alert('Please fill description and amount');return;}
-  db.expenses.push({id:Date.now(),desc,amount:Number(amount),cat,date:ts()});
-  save('expenses'); renderExpenses();
-  document.getElementById('e-desc').value=''; document.getElementById('e-amount').value='';
-}
-function renderExpenses(){
-  const tb=document.getElementById('expenses-tbody');
-  const empty=document.getElementById('expenses-empty');
-  if(!db.expenses.length){tb.innerHTML='';empty.style.display='block';
-    ['e-total','e-clothing-sum','e-food-sum','e-deco-sum'].forEach(id=>document.getElementById(id).textContent='0');
-    renderExpenseChart(); return;}
-  empty.style.display='none';
-  const total=db.expenses.reduce((s,e)=>s+e.amount,0);
-  document.getElementById('e-total').textContent=fmtNum(total);
-  document.getElementById('e-clothing-sum').textContent=fmtNum(db.expenses.filter(e=>e.cat==='Clothing').reduce((s,e)=>s+e.amount,0));
-  document.getElementById('e-food-sum').textContent=fmtNum(db.expenses.filter(e=>e.cat==='Food').reduce((s,e)=>s+e.amount,0));
-  document.getElementById('e-deco-sum').textContent=fmtNum(db.expenses.filter(e=>e.cat==='Decoration').reduce((s,e)=>s+e.amount,0));
-  const badgeClass={'Clothing':'badge-clothing','Food':'badge-food','Decoration':'badge-decoration'};
-  tb.innerHTML=db.expenses.map((e,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td>${e.desc}</td>
-      <td><span class="badge ${badgeClass[e.cat]||'badge-custom'}">${e.cat}</span></td>
-      <td><strong>৳${fmtNum(e.amount)}</strong></td>
-      <td class="date-badge">${e.date}</td>
-      <td><div class="actions">
-        <button class="btn-sm btn-edit" onclick="editExpense(${e.id})">Edit</button>
-        <button class="btn-sm btn-del" onclick="delExpense(${e.id})">Del</button>
-      </div></td>
-    </tr>`).join('');
-  renderExpenseChart();
-}
-function delExpense(id){
-  if(!confirm('Delete this expense?'))return;
-  db.expenses=db.expenses.filter(e=>e.id!==id); save('expenses'); renderExpenses();
-}
-let expChart=null;
-function renderExpenseChart(){
-  const canvas=document.getElementById('expenseChart');
-  const chartEmpty=document.getElementById('chart-empty');
-  if(!db.expenses.length){canvas.style.display='none';chartEmpty.style.display='block';return;}
-  canvas.style.display='block';chartEmpty.style.display='none';
-  const catMap={};
-  db.expenses.forEach(e=>{ catMap[e.cat]=(catMap[e.cat]||0)+e.amount; });
-  const labels=Object.keys(catMap);
-  const data=Object.values(catMap);
-  const colors=['#c9a84c','#c97d7d','#4a7c5c','#7d9cc9','#9c7dc9','#c9bb7d','#7dc9c9'];
-  if(expChart){expChart.destroy();}
-  expChart=new Chart(canvas,{
-    type:'pie',
-    data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},
-    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Lato',size:11},padding:10}}},animation:{duration:500}}
+  if (!validateRequired(name, 'Guest Name')) return;
+  if (!validateNumber(family, 'Family Members', false)) return;
+
+  db.guests.push({
+    id: Date.now(),
+    name: name,
+    family: Number(family),
+    phone: phone,
+    relation: relation,
+    date: ts()
   });
+
+  save('guests');
+  document.getElementById('g-name').value = '';
+  document.getElementById('g-family').value = '';
+  document.getElementById('g-phone').value = '';
+  document.getElementById('g-relation').value = 'Family';
+  renderGuests();
 }
 
-// ════════════════════════════
-//  CLOTHING
-// ════════════════════════════
-function addClothing(){
-  const name=document.getElementById('cl-name').value.trim();
-  const forWho=document.getElementById('cl-for').value.trim();
-  const qty=document.getElementById('cl-qty').value||1;
-  const cost=document.getElementById('cl-cost').value;
-  if(!name||!cost){alert('Please fill item name and cost');return;}
-  db.clothing.push({id:Date.now(),name,forWho,qty:Number(qty),cost:Number(cost),date:ts()});
-  save('clothing'); renderClothing();
-  ['cl-name','cl-for','cl-cost'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('cl-qty').value='1';
-}
-function renderClothing(){
-  const tb=document.getElementById('clothing-tbody');
-  const empty=document.getElementById('clothing-empty');
-  if(!db.clothing.length){tb.innerHTML='';empty.style.display='block';
-    document.getElementById('cl-total-items').textContent='0';
-    document.getElementById('cl-total-cost').textContent='0'; return;}
-  empty.style.display='none';
-  const total=db.clothing.reduce((s,c)=>s+c.qty*c.cost,0);
-  document.getElementById('cl-total-items').textContent=db.clothing.length;
-  document.getElementById('cl-total-cost').textContent=fmtNum(total);
-  tb.innerHTML=db.clothing.map((c,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.forWho||'—'}</td>
-      <td>${c.qty}</td>
-      <td>৳${fmtNum(c.cost)}</td>
-      <td><strong>৳${fmtNum(c.qty*c.cost)}</strong></td>
-      <td class="date-badge">${c.date}</td>
-      <td><div class="actions">
-        <button class="btn-sm btn-edit" onclick="editClothing(${c.id})">Edit</button>
-        <button class="btn-sm btn-del" onclick="delClothing(${c.id})">Del</button>
-      </div></td>
-    </tr>`).join('');
-}
-function delClothing(id){
-  if(!confirm('Delete this item?'))return;
-  db.clothing=db.clothing.filter(c=>c.id!==id); save('clothing'); renderClothing();
-}
-
-// ════════════════════════════
-//  FOOD
-// ════════════════════════════
-function addFood(){
-  const name=document.getElementById('f-name').value.trim();
-  const type=document.getElementById('f-type').value;
-  const qty=document.getElementById('f-qty').value||0;
-  const cost=document.getElementById('f-cost').value||0;
-  if(!name){alert('Please enter item name');return;}
-  db.food.push({id:Date.now(),name,type,qty:Number(qty),cost:Number(cost),date:ts()});
-  save('food'); renderFood();
-  ['f-name','f-qty','f-cost'].forEach(id=>document.getElementById(id).value='');
-}
-function renderFood(){
-  const tb=document.getElementById('food-tbody');
-  const empty=document.getElementById('food-empty');
-  if(!db.food.length){tb.innerHTML='';empty.style.display='block';
-    document.getElementById('f-total-items').textContent='0';
-    document.getElementById('f-total-cost').textContent='0'; return;}
-  empty.style.display='none';
-  const total=db.food.reduce((s,f)=>s+f.cost,0);
-  document.getElementById('f-total-items').textContent=db.food.length;
-  document.getElementById('f-total-cost').textContent=fmtNum(total);
-  tb.innerHTML=db.food.map((f,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td><strong>${f.name}</strong></td>
-      <td><span class="badge badge-food">${f.type}</span></td>
-      <td>${f.qty||'—'}</td>
-      <td>৳${fmtNum(f.cost)}</td>
-      <td class="date-badge">${f.date}</td>
-      <td><div class="actions">
-        <button class="btn-sm btn-edit" onclick="editFood(${f.id})">Edit</button>
-        <button class="btn-sm btn-del" onclick="delFood(${f.id})">Del</button>
-      </div></td>
-    </tr>`).join('');
-}
-function delFood(id){
-  if(!confirm('Delete this item?'))return;
-  db.food=db.food.filter(f=>f.id!==id); save('food'); renderFood();
-}
-
-// ════════════════════════════
-//  DECORATION
-// ════════════════════════════
-function addDecoration(){
-  const name=document.getElementById('d-name').value.trim();
-  const location=document.getElementById('d-location').value.trim();
-  const qty=document.getElementById('d-qty').value||1;
-  const cost=document.getElementById('d-cost').value||0;
-  if(!name){alert('Please enter item name');return;}
-  db.decoration.push({id:Date.now(),name,location,qty:Number(qty),cost:Number(cost),date:ts()});
-  save('decoration'); renderDecoration();
-  ['d-name','d-location','d-cost'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('d-qty').value='1';
-}
-function renderDecoration(){
-  const tb=document.getElementById('decoration-tbody');
-  const empty=document.getElementById('decoration-empty');
-  if(!db.decoration.length){tb.innerHTML='';empty.style.display='block';
-    document.getElementById('d-total-items').textContent='0';
-    document.getElementById('d-total-cost').textContent='0'; return;}
-  empty.style.display='none';
-  const total=db.decoration.reduce((s,d)=>s+d.cost,0);
-  document.getElementById('d-total-items').textContent=db.decoration.length;
-  document.getElementById('d-total-cost').textContent=fmtNum(total);
-  tb.innerHTML=db.decoration.map((d,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td><strong>${d.name}</strong></td>
-      <td>${d.location||'—'}</td>
-      <td>${d.qty}</td>
-      <td>৳${fmtNum(d.cost)}</td>
-      <td class="date-badge">${d.date}</td>
-      <td><div class="actions">
-        <button class="btn-sm btn-edit" onclick="editDecoration(${d.id})">Edit</button>
-        <button class="btn-sm btn-del" onclick="delDecoration(${d.id})">Del</button>
-      </div></td>
-    </tr>`).join('');
-}
-function delDecoration(id){
-  if(!confirm('Delete this item?'))return;
-  db.decoration=db.decoration.filter(d=>d.id!==id); save('decoration'); renderDecoration();
-}
-
-// ════════════════════════════
-//  MODAL EDIT SYSTEM
-// ════════════════════════════
-let editState={type:null,id:null};
-function openModal(type,id){ editState={type,id}; document.getElementById('editModal').classList.add('open'); }
-function closeModal(){ document.getElementById('editModal').classList.remove('open'); }
-
-function editGuest(id){
-  const g=db.guests.find(x=>x.id===id);
-  document.getElementById('modal-title').textContent='Edit Guest';
-  document.getElementById('modal-body').innerHTML=`
-    <div class="form-grid">
-      <div class="form-group"><label>Name</label><input id="m-name" value="${g.name}"></div>
-      <div class="form-group"><label>Family Members</label><input type="number" id="m-family" value="${g.family}"></div>
-      <div class="form-group"><label>Phone</label><input id="m-phone" value="${g.phone||''}"></div>
-      <div class="form-group"><label>Relation</label>
-        <select id="m-relation">
-          ${['Family','Friend','Colleague','Neighbor','Other'].map(r=>`<option value="${r}" ${g.relation===r?'selected':''}>${r}</option>`).join('')}
-        </select></div>
-    </div>`;
-  openModal('guest',id);
-}
-function editExpense(id){
-  const e=db.expenses.find(x=>x.id===id);
-  document.getElementById('modal-title').textContent='Edit Expense';
-  document.getElementById('modal-body').innerHTML=`
-    <div class="form-grid">
-      <div class="form-group"><label>Description</label><input id="m-desc" value="${e.desc}"></div>
-      <div class="form-group"><label>Amount (৳)</label><input type="number" id="m-amount" value="${e.amount}"></div>
-      <div class="form-group"><label>Category</label><input id="m-cat" value="${e.cat}"></div>
-    </div>`;
-  openModal('expense',id);
-}
-function editClothing(id){
-  const c=db.clothing.find(x=>x.id===id);
-  document.getElementById('modal-title').textContent='Edit Clothing Item';
-  document.getElementById('modal-body').innerHTML=`
-    <div class="form-grid">
-      <div class="form-group"><label>Item Name</label><input id="m-name" value="${c.name}"></div>
-      <div class="form-group"><label>For Whom</label><input id="m-for" value="${c.forWho}"></div>
-      <div class="form-group"><label>Quantity</label><input type="number" id="m-qty" value="${c.qty}"></div>
-      <div class="form-group"><label>Cost (৳)</label><input type="number" id="m-cost" value="${c.cost}"></div>
-    </div>`;
-  openModal('clothing',id);
-}
-function editFood(id){
-  const f=db.food.find(x=>x.id===id);
-  document.getElementById('modal-title').textContent='Edit Food Item';
-  document.getElementById('modal-body').innerHTML=`
-    <div class="form-grid">
-      <div class="form-group"><label>Item Name</label><input id="m-name" value="${f.name}"></div>
-      <div class="form-group"><label>Qty/Kg</label><input type="number" id="m-qty" value="${f.qty}"></div>
-      <div class="form-group"><label>Cost (৳)</label><input type="number" id="m-cost" value="${f.cost}"></div>
-    </div>`;
-  openModal('food',id);
-}
-function editDecoration(id){
-  const d=db.decoration.find(x=>x.id===id);
-  document.getElementById('modal-title').textContent='Edit Decoration Item';
-  document.getElementById('modal-body').innerHTML=`
-    <div class="form-grid">
-      <div class="form-group"><label>Item Name</label><input id="m-name" value="${d.name}"></div>
-      <div class="form-group"><label>Location</label><input id="m-location" value="${d.location}"></div>
-      <div class="form-group"><label>Qty</label><input type="number" id="m-qty" value="${d.qty}"></div>
-      <div class="form-group"><label>Cost (৳)</label><input type="number" id="m-cost" value="${d.cost}"></div>
-    </div>`;
-  openModal('decoration',id);
-}
-
-function saveEdit(){
-  const {type,id}=editState;
-  if(type==='guest'){
-    const g=db.guests.find(x=>x.id===id);
-    g.name=document.getElementById('m-name').value;
-    g.family=Number(document.getElementById('m-family').value);
-    g.phone=document.getElementById('m-phone').value;
-    g.relation=document.getElementById('m-relation').value;
-    save('guests'); renderGuests();
-  } else if(type==='expense'){
-    const e=db.expenses.find(x=>x.id===id);
-    e.desc=document.getElementById('m-desc').value;
-    e.amount=Number(document.getElementById('m-amount').value);
-    e.cat=document.getElementById('m-cat').value;
-    save('expenses'); renderExpenses();
-  } else if(type==='clothing'){
-    const c=db.clothing.find(x=>x.id===id);
-    c.name=document.getElementById('m-name').value;
-    c.forWho=document.getElementById('m-for').value;
-    c.qty=Number(document.getElementById('m-qty').value);
-    c.cost=Number(document.getElementById('m-cost').value);
-    save('clothing'); renderClothing();
-  } else if(type==='food'){
-    const f=db.food.find(x=>x.id===id);
-    f.name=document.getElementById('m-name').value;
-    f.qty=Number(document.getElementById('m-qty').value);
-    f.cost=Number(document.getElementById('m-cost').value);
-    save('food'); renderFood();
-  } else if(type==='decoration'){
-    const d=db.decoration.find(x=>x.id===id);
-    d.name=document.getElementById('m-name').value;
-    d.location=document.getElementById('m-location').value;
-    d.qty=Number(document.getElementById('m-qty').value);
-    d.cost=Number(document.getElementById('m-cost').value);
-    save('decoration'); renderDecoration();
+function renderGuests() {
+  const tbody = document.getElementById('guests-tbody');
+  const empty = document.getElementById('guests-empty');
+  
+  tbody.innerHTML = '';
+  
+  if (db.guests.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    db.guests.forEach((g, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(g.name)}</td>
+        <td>${g.relation}</td>
+        <td>${g.family}</td>
+        <td>${escapeHtml(g.phone) || '—'}</td>
+        <td class="date-badge">${g.date}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-sm btn-edit" onclick="editGuest(${g.id})">Edit</button>
+            <button class="btn-sm btn-del" onclick="deleteGuest(${g.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
-  closeModal();
+  
+  document.getElementById('g-total-guests').textContent = db.guests.length;
+  const totalMembers = db.guests.reduce((s, g) => s + g.family, 0);
+  document.getElementById('g-total-members').textContent = totalMembers;
 }
 
-// Close modal on backdrop click
-document.getElementById('editModal').addEventListener('click',function(e){
-  if(e.target===this) closeModal();
-});
+function deleteGuest(id) {
+  if (confirm('Delete this guest?')) {
+    db.guests = db.guests.filter(g => g.id !== id);
+    save('guests');
+    renderGuests();
+  }
+}
+
+function editGuest(id) {
+  const guest = db.guests.find(g => g.id === id);
+  if (!guest) return;
+  
+  currentEditType = 'guest';
+  currentEditId = id;
+  
+  document.getElementById('modal-title').textContent = 'Edit Guest';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Guest Name</label>
+      <input type="text" id="edit-name" value="${escapeHtml(guest.name)}">
+    </div>
+    <div class="form-group">
+      <label>Family Members</label>
+      <input type="number" id="edit-family" value="${guest.family}" min="1">
+    </div>
+    <div class="form-group">
+      <label>Phone</label>
+      <input type="text" id="edit-phone" value="${escapeHtml(guest.phone)}">
+    </div>
+    <div class="form-group">
+      <label>Relation</label>
+      <select id="edit-relation">
+        <option value="Family" ${guest.relation === 'Family' ? 'selected' : ''}>Family</option>
+        <option value="Friend" ${guest.relation === 'Friend' ? 'selected' : ''}>Friend</option>
+        <option value="Colleague" ${guest.relation === 'Colleague' ? 'selected' : ''}>Colleague</option>
+        <option value="Neighbor" ${guest.relation === 'Neighbor' ? 'selected' : ''}>Neighbor</option>
+        <option value="Other" ${guest.relation === 'Other' ? 'selected' : ''}>Other</option>
+      </select>
+    </div>
+  `;
+  
+  document.getElementById('editModal').classList.add('open');
+}
+
+// ════════════════════════════
+//  EXPENSES MANAGEMENT
+// ════════════════════════════
+function addExpense() {
+  const desc = document.getElementById('e-desc').value.trim();
+  const amount = document.getElementById('e-amount').value;
+  const cat = document.getElementById('e-cat').value;
+  const custom = document.getElementById('e-custom').value.trim();
+
+  if (!validateRequired(desc, 'Description')) return;
+  if (!validateNumber(amount, 'Amount', false)) return;
+
+  const category = cat === 'Custom' ? custom : cat;
+  if (!validateRequired(category, 'Category')) return;
+
+  db.expenses.push({
+    id: Date.now(),
+    desc: desc,
+    amount: Number(amount),
+    category: category,
+    date: ts()
+  });
+
+  save('expenses');
+  document.getElementById('e-desc').value = '';
+  document.getElementById('e-amount').value = '';
+  document.getElementById('e-cat').value = 'Clothing';
+  document.getElementById('e-custom').value = '';
+  document.getElementById('e-custom-wrap').style.display = 'none';
+  renderExpenses();
+  setTimeout(() => renderExpenseChart(), 100);
+}
+
+function renderExpenses() {
+  const tbody = document.getElementById('expenses-tbody');
+  const empty = document.getElementById('expenses-empty');
+  
+  tbody.innerHTML = '';
+  
+  if (db.expenses.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    db.expenses.forEach((e, i) => {
+      const tr = document.createElement('tr');
+      const badge = `badge-${e.category.toLowerCase().replace(' ', '-')}`;
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(e.desc)}</td>
+        <td><span class="badge ${badge}">${escapeHtml(e.category)}</span></td>
+        <td>৳${fmtNum(e.amount)}</td>
+        <td class="date-badge">${e.date}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-sm btn-edit" onclick="editExpense(${e.id})">Edit</button>
+            <button class="btn-sm btn-del" onclick="deleteExpense(${e.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  
+  updateExpenseSummary();
+}
+
+function updateExpenseSummary() {
+  const total = db.expenses.reduce((s, e) => s + e.amount, 0);
+  const clothing = db.expenses.filter(e => e.category === 'Clothing').reduce((s, e) => s + e.amount, 0);
+  const food = db.expenses.filter(e => e.category === 'Food').reduce((s, e) => s + e.amount, 0);
+  const deco = db.expenses.filter(e => e.category === 'Decoration').reduce((s, e) => s + e.amount, 0);
+
+  document.getElementById('e-total').textContent = fmtNum(Math.round(total));
+  document.getElementById('e-clothing-sum').textContent = fmtNum(Math.round(clothing));
+  document.getElementById('e-food-sum').textContent = fmtNum(Math.round(food));
+  document.getElementById('e-deco-sum').textContent = fmtNum(Math.round(deco));
+}
+
+function deleteExpense(id) {
+  if (confirm('Delete this expense?')) {
+    db.expenses = db.expenses.filter(e => e.id !== id);
+    save('expenses');
+    renderExpenses();
+    renderExpenseChart();
+  }
+}
+
+function editExpense(id) {
+  const expense = db.expenses.find(e => e.id === id);
+  if (!expense) return;
+  
+  currentEditType = 'expense';
+  currentEditId = id;
+  
+  document.getElementById('modal-title').textContent = 'Edit Expense';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="edit-desc" value="${escapeHtml(expense.desc)}">
+    </div>
+    <div class="form-group">
+      <label>Amount (৳)</label>
+      <input type="number" id="edit-amount" value="${expense.amount}" min="0">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <input type="text" id="edit-category" value="${escapeHtml(expense.category)}">
+    </div>
+  `;
+  
+  document.getElementById('editModal').classList.add('open');
+}
+
+function renderExpenseChart() {
+  const categories = {};
+  db.expenses.forEach(e => {
+    categories[e.category] = (categories[e.category] || 0) + e.amount;
+  });
+
+  const labels = Object.keys(categories);
+  const data = Object.values(categories);
+
+  if (labels.length === 0) {
+    document.getElementById('chart-empty').style.display = 'block';
+    document.getElementById('expenseChart').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('chart-empty').style.display = 'none';
+  document.getElementById('expenseChart').style.display = 'block';
+
+  if (expenseChart) {
+    expenseChart.data.labels = labels;
+    expenseChart.data.datasets[0].data = data;
+    expenseChart.update();
+  } else {
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    expenseChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: [
+            '#ede0ff', '#ffecd5', '#d5f2e0', '#f0d0d0',
+            '#e8d5a3', '#ffc0b0', '#d0f0e8'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+}
+
+// ════════════════════════════
+//  CLOTHING MANAGEMENT
+// ════════════════════════════
+function addClothing() {
+  const name = document.getElementById('cl-name').value.trim();
+  const forWhom = document.getElementById('cl-for').value.trim();
+  const qty = document.getElementById('cl-qty').value;
+  const cost = document.getElementById('cl-cost').value;
+
+  if (!validateRequired(name, 'Item Name')) return;
+  if (!validateRequired(forWhom, 'For Whom')) return;
+  if (!validateNumber(qty, 'Quantity', false)) return;
+  if (!validateNumber(cost, 'Cost', false)) return;
+
+  db.clothing.push({
+    id: Date.now(),
+    name: name,
+    forWhom: forWhom,
+    qty: Number(qty),
+    cost: Number(cost),
+    date: ts()
+  });
+
+  save('clothing');
+  document.getElementById('cl-name').value = '';
+  document.getElementById('cl-for').value = '';
+  document.getElementById('cl-qty').value = '1';
+  document.getElementById('cl-cost').value = '';
+  renderClothing();
+}
+
+function renderClothing() {
+  const tbody = document.getElementById('clothing-tbody');
+  const empty = document.getElementById('clothing-empty');
+  
+  tbody.innerHTML = '';
+  
+  if (db.clothing.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    db.clothing.forEach((c, i) => {
+      const total = c.qty * c.cost;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.forWhom)}</td>
+        <td>${c.qty}</td>
+        <td>৳${fmtNum(c.cost)}</td>
+        <td>৳${fmtNum(total)}</td>
+        <td class="date-badge">${c.date}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-sm btn-edit" onclick="editClothing(${c.id})">Edit</button>
+            <button class="btn-sm btn-del" onclick="deleteClothing(${c.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  
+  const totalItems = db.clothing.length;
+  const totalCost = db.clothing.reduce((s, c) => s + (c.qty * c.cost), 0);
+  
+  document.getElementById('cl-total-items').textContent = totalItems;
+  document.getElementById('cl-total-cost').textContent = fmtNum(Math.round(totalCost));
+}
+
+function deleteClothing(id) {
+  if (confirm('Delete this item?')) {
+    db.clothing = db.clothing.filter(c => c.id !== id);
+    save('clothing');
+    renderClothing();
+  }
+}
+
+function editClothing(id) {
+  const item = db.clothing.find(c => c.id === id);
+  if (!item) return;
+  
+  currentEditType = 'clothing';
+  currentEditId = id;
+  
+  document.getElementById('modal-title').textContent = 'Edit Clothing Item';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Item Name</label>
+      <input type="text" id="edit-name" value="${escapeHtml(item.name)}">
+    </div>
+    <div class="form-group">
+      <label>For Whom</label>
+      <input type="text" id="edit-forWhom" value="${escapeHtml(item.forWhom)}">
+    </div>
+    <div class="form-group">
+      <label>Quantity</label>
+      <input type="number" id="edit-qty" value="${item.qty}" min="1">
+    </div>
+    <div class="form-group">
+      <label>Cost per Unit (৳)</label>
+      <input type="number" id="edit-cost" value="${item.cost}" min="0">
+    </div>
+  `;
+  
+  document.getElementById('editModal').classList.add('open');
+}
+
+// ════════════════════════════
+//  FOOD MANAGEMENT
+// ════════════════════════════
+function addFood() {
+  const name = document.getElementById('f-name').value.trim();
+  const type = document.getElementById('f-type').value;
+  const qty = document.getElementById('f-qty').value;
+  const cost = document.getElementById('f-cost').value;
+
+  if (!validateRequired(name, 'Item Name')) return;
+  if (!validateNumber(qty, 'Portions', false)) return;
+  if (!validateNumber(cost, 'Cost', false)) return;
+
+  db.food.push({
+    id: Date.now(),
+    name: name,
+    type: type,
+    qty: Number(qty),
+    cost: Number(cost),
+    date: ts()
+  });
+
+  save('food');
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-qty').value = '';
+  document.getElementById('f-cost').value = '';
+  document.getElementById('f-type').value = 'Main Course';
+  renderFood();
+  updateHomeStats();
+}
+
+function renderFood() {
+  const tbody = document.getElementById('food-tbody');
+  const empty = document.getElementById('food-empty');
+  
+  tbody.innerHTML = '';
+  
+  if (db.food.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    db.food.forEach((f, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(f.name)}</td>
+        <td>${f.type}</td>
+        <td>${f.qty}</td>
+        <td>৳${fmtNum(f.cost)}</td>
+        <td class="date-badge">${f.date}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-sm btn-edit" onclick="editFood(${f.id})">Edit</button>
+            <button class="btn-sm btn-del" onclick="deleteFood(${f.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  
+  const totalCost = db.food.reduce((s, f) => s + f.cost, 0);
+  document.getElementById('f-total-items').textContent = db.food.length;
+  document.getElementById('f-total-cost').textContent = fmtNum(Math.round(totalCost));
+}
+
+function deleteFood(id) {
+  if (confirm('Delete this item?')) {
+    db.food = db.food.filter(f => f.id !== id);
+    save('food');
+    renderFood();
+    updateHomeStats();
+  }
+}
+
+function editFood(id) {
+  const item = db.food.find(f => f.id === id);
+  if (!item) return;
+  
+  currentEditType = 'food';
+  currentEditId = id;
+  
+  document.getElementById('modal-title').textContent = 'Edit Food Item';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Item Name</label>
+      <input type="text" id="edit-name" value="${escapeHtml(item.name)}">
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="edit-type">
+        <option value="Main Course" ${item.type === 'Main Course' ? 'selected' : ''}>Main Course</option>
+        <option value="Starter" ${item.type === 'Starter' ? 'selected' : ''}>Starter</option>
+        <option value="Dessert" ${item.type === 'Dessert' ? 'selected' : ''}>Dessert</option>
+        <option value="Beverage" ${item.type === 'Beverage' ? 'selected' : ''}>Beverage</option>
+        <option value="Snack" ${item.type === 'Snack' ? 'selected' : ''}>Snack</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Portions / Kg</label>
+      <input type="number" id="edit-qty" value="${item.qty}" min="0">
+    </div>
+    <div class="form-group">
+      <label>Cost (৳)</label>
+      <input type="number" id="edit-cost" value="${item.cost}" min="0">
+    </div>
+  `;
+  
+  document.getElementById('editModal').classList.add('open');
+}
+
+// ════════════════════════════
+//  DECORATION MANAGEMENT
+// ════════════════════════════
+function addDecoration() {
+  const name = document.getElementById('d-name').value.trim();
+  const location = document.getElementById('d-location').value.trim();
+  const qty = document.getElementById('d-qty').value;
+  const cost = document.getElementById('d-cost').value;
+
+  if (!validateRequired(name, 'Item Name')) return;
+  if (!validateRequired(location, 'Location')) return;
+  if (!validateNumber(qty, 'Quantity', false)) return;
+  if (!validateNumber(cost, 'Cost', false)) return;
+
+  db.decoration.push({
+    id: Date.now(),
+    name: name,
+    location: location,
+    qty: Number(qty),
+    cost: Number(cost),
+    date: ts()
+  });
+
+  save('decoration');
+  document.getElementById('d-name').value = '';
+  document.getElementById('d-location').value = '';
+  document.getElementById('d-qty').value = '1';
+  document.getElementById('d-cost').value = '';
+  renderDecoration();
+}
+
+function renderDecoration() {
+  const tbody = document.getElementById('decoration-tbody');
+  const empty = document.getElementById('decoration-empty');
+  
+  tbody.innerHTML = '';
+  
+  if (db.decoration.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    db.decoration.forEach((d, i) => {
+      const total = d.qty * d.cost;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(d.name)}</td>
+        <td>${escapeHtml(d.location)}</td>
+        <td>${d.qty}</td>
+        <td>৳${fmtNum(total)}</td>
+        <td class="date-badge">${d.date}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-sm btn-edit" onclick="editDecoration(${d.id})">Edit</button>
+            <button class="btn-sm btn-del" onclick="deleteDecoration(${d.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  
+  const totalItems = db.decoration.length;
+  const totalCost = db.decoration.reduce((s, d) => s + (d.qty * d.cost), 0);
+  
+  document.getElementById('d-total-items').textContent = totalItems;
+  document.getElementById('d-total-cost').textContent = fmtNum(Math.round(totalCost));
+}
+
+function deleteDecoration(id) {
+  if (confirm('Delete this item?')) {
+    db.decoration = db.decoration.filter(d => d.id !== id);
+    save('decoration');
+    renderDecoration();
+  }
+}
+
+function editDecoration(id) {
+  const item = db.decoration.find(d => d.id === id);
+  if (!item) return;
+  
+  currentEditType = 'decoration';
+  currentEditId = id;
+  
+  document.getElementById('modal-title').textContent = 'Edit Decoration Item';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Item Name</label>
+      <input type="text" id="edit-name" value="${escapeHtml(item.name)}">
+    </div>
+    <div class="form-group">
+      <label>Location</label>
+      <input type="text" id="edit-location" value="${escapeHtml(item.location)}">
+    </div>
+    <div class="form-group">
+      <label>Quantity</label>
+      <input type="number" id="edit-qty" value="${item.qty}" min="1">
+    </div>
+    <div class="form-group">
+      <label>Cost (৳)</label>
+      <input type="number" id="edit-cost" value="${item.cost}" min="0">
+    </div>
+  `;
+  
+  document.getElementById('editModal').classList.add('open');
+}
+
+// ════════════════════════════
+//  MODAL MANAGEMENT
+// ════════════════════════════
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+  currentEditType = null;
+  currentEditId = null;
+}
+
+function saveEdit() {
+  if (!currentEditType || !currentEditId) return;
+
+  try {
+    if (currentEditType === 'guest') {
+      const name = document.getElementById('edit-name').value.trim();
+      const family = document.getElementById('edit-family').value;
+      const phone = document.getElementById('edit-phone').value.trim();
+      const relation = document.getElementById('edit-relation').value;
+
+      if (!validateRequired(name, 'Guest Name')) return;
+      if (!validateNumber(family, 'Family Members', false)) return;
+
+      const idx = db.guests.findIndex(g => g.id === currentEditId);
+      if (idx >= 0) {
+        db.guests[idx] = { ...db.guests[idx], name, family: Number(family), phone, relation };
+        save('guests');
+        renderGuests();
+      }
+    } else if (currentEditType === 'expense') {
+      const desc = document.getElementById('edit-desc').value.trim();
+      const amount = document.getElementById('edit-amount').value;
+      const category = document.getElementById('edit-category').value.trim();
+
+      if (!validateRequired(desc, 'Description')) return;
+      if (!validateNumber(amount, 'Amount', false)) return;
+      if (!validateRequired(category, 'Category')) return;
+
+      const idx = db.expenses.findIndex(e => e.id === currentEditId);
+      if (idx >= 0) {
+        db.expenses[idx] = { ...db.expenses[idx], desc, amount: Number(amount), category };
+        save('expenses');
+        renderExpenses();
+        renderExpenseChart();
+      }
+    } else if (currentEditType === 'clothing') {
+      const name = document.getElementById('edit-name').value.trim();
+      const forWhom = document.getElementById('edit-forWhom').value.trim();
+      const qty = document.getElementById('edit-qty').value;
+      const cost = document.getElementById('edit-cost').value;
+
+      if (!validateRequired(name, 'Item Name')) return;
+      if (!validateRequired(forWhom, 'For Whom')) return;
+      if (!validateNumber(qty, 'Quantity', false)) return;
+      if (!validateNumber(cost, 'Cost', false)) return;
+
+      const idx = db.clothing.findIndex(c => c.id === currentEditId);
+      if (idx >= 0) {
+        db.clothing[idx] = { ...db.clothing[idx], name, forWhom, qty: Number(qty), cost: Number(cost) };
+        save('clothing');
+        renderClothing();
+      }
+    } else if (currentEditType === 'food') {
+      const name = document.getElementById('edit-name').value.trim();
+      const type = document.getElementById('edit-type').value;
+      const qty = document.getElementById('edit-qty').value;
+      const cost = document.getElementById('edit-cost').value;
+
+      if (!validateRequired(name, 'Item Name')) return;
+      if (!validateNumber(qty, 'Portions', false)) return;
+      if (!validateNumber(cost, 'Cost', false)) return;
+
+      const idx = db.food.findIndex(f => f.id === currentEditId);
+      if (idx >= 0) {
+        db.food[idx] = { ...db.food[idx], name, type, qty: Number(qty), cost: Number(cost) };
+        save('food');
+        renderFood();
+        updateHomeStats();
+      }
+    } else if (currentEditType === 'decoration') {
+      const name = document.getElementById('edit-name').value.trim();
+      const location = document.getElementById('edit-location').value.trim();
+      const qty = document.getElementById('edit-qty').value;
+      const cost = document.getElementById('edit-cost').value;
+
+      if (!validateRequired(name, 'Item Name')) return;
+      if (!validateRequired(location, 'Location')) return;
+      if (!validateNumber(qty, 'Quantity', false)) return;
+      if (!validateNumber(cost, 'Cost', false)) return;
+
+      const idx = db.decoration.findIndex(d => d.id === currentEditId);
+      if (idx >= 0) {
+        db.decoration[idx] = { ...db.decoration[idx], name, location, qty: Number(qty), cost: Number(cost) };
+        save('decoration');
+        renderDecoration();
+      }
+    }
+
+    closeModal();
+  } catch (e) {
+    alert('Error saving: ' + e.message);
+  }
+}
 
 // ════════════════════════════
 //  PRINT
 // ════════════════════════════
-function printSection(section){
-  const titles={guests:'Guest List',expenses:'Expense Report',clothing:'Clothing Report',food:'Food & Menu Report',decoration:'Decoration Report'};
-  const data={guests:db.guests,expenses:db.expenses,clothing:db.clothing,food:db.food,decoration:db.decoration};
-  let html=`<html><head><title>${titles[section]}</title>
-  <style>
-    body{font-family:Arial,sans-serif;padding:30px;color:#333}
-    h1{font-size:22px;margin-bottom:4px;color:#3d2b1f}
-    .sub{color:#888;font-size:13px;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th{background:#3d2b1f;color:#c9a84c;padding:8px 12px;text-align:left}
-    td{padding:8px 12px;border-bottom:1px solid #eee}
-    tr:nth-child(even){background:#fdf8f0}
-    .total{margin-top:16px;font-weight:bold;text-align:right;font-size:14px;color:#3d2b1f}
-  </style></head><body>
-  <h1>Wedding Management System — ${titles[section]}</h1>
-  <div class="sub">Printed on: ${new Date().toLocaleString()}</div>`;
-
-  if(section==='guests'){
-    html+=`<table><tr><th>#</th><th>Name</th><th>Relation</th><th>Family</th><th>Phone</th><th>Date</th></tr>`;
-    db.guests.forEach((g,i)=>{html+=`<tr><td>${i+1}</td><td>${g.name}</td><td>${g.relation}</td><td>${g.family}</td><td>${g.phone||'—'}</td><td>${g.date}</td></tr>`;});
-    html+=`</table><div class="total">Total Guests: ${db.guests.length} | Total Members: ${db.guests.reduce((s,g)=>s+g.family,0)}</div>`;
-  } else if(section==='expenses'){
-    html+=`<table><tr><th>#</th><th>Description</th><th>Category</th><th>Amount</th><th>Date</th></tr>`;
-    db.expenses.forEach((e,i)=>{html+=`<tr><td>${i+1}</td><td>${e.desc}</td><td>${e.cat}</td><td>৳${fmtNum(e.amount)}</td><td>${e.date}</td></tr>`;});
-    html+=`</table><div class="total">Total: ৳${fmtNum(db.expenses.reduce((s,e)=>s+e.amount,0))}</div>`;
-  } else if(section==='clothing'){
-    html+=`<table><tr><th>#</th><th>Item</th><th>For</th><th>Qty</th><th>Unit</th><th>Total</th><th>Date</th></tr>`;
-    db.clothing.forEach((c,i)=>{html+=`<tr><td>${i+1}</td><td>${c.name}</td><td>${c.forWho||'—'}</td><td>${c.qty}</td><td>৳${fmtNum(c.cost)}</td><td>৳${fmtNum(c.qty*c.cost)}</td><td>${c.date}</td></tr>`;});
-    html+=`</table><div class="total">Total: ৳${fmtNum(db.clothing.reduce((s,c)=>s+c.qty*c.cost,0))}</div>`;
-  } else if(section==='food'){
-    html+=`<table><tr><th>#</th><th>Item</th><th>Type</th><th>Qty</th><th>Cost</th><th>Date</th></tr>`;
-    db.food.forEach((f,i)=>{html+=`<tr><td>${i+1}</td><td>${f.name}</td><td>${f.type}</td><td>${f.qty||'—'}</td><td>৳${fmtNum(f.cost)}</td><td>${f.date}</td></tr>`;});
-    html+=`</table><div class="total">Total: ৳${fmtNum(db.food.reduce((s,f)=>s+f.cost,0))}</div>`;
-  } else if(section==='decoration'){
-    html+=`<table><tr><th>#</th><th>Item</th><th>Location</th><th>Qty</th><th>Cost</th><th>Date</th></tr>`;
-    db.decoration.forEach((d,i)=>{html+=`<tr><td>${i+1}</td><td>${d.name}</td><td>${d.location||'—'}</td><td>${d.qty}</td><td>৳${fmtNum(d.cost)}</td><td>${d.date}</td></tr>`;});
-    html+=`</table><div class="total">Total: ৳${fmtNum(db.decoration.reduce((s,d)=>s+d.cost,0))}</div>`;
-  }
-  html+=`</body></html>`;
-  const w=window.open('','_blank');
-  w.document.write(html);
-  w.document.close();
-  w.print();
+function printSection(page) {
+  window.print();
 }
 
 // ════════════════════════════
-//  INIT
+//  XSS PROTECTION
 // ════════════════════════════
-renderGuests();
-renderExpenses();
-renderClothing();
-renderFood();
-renderDecoration();
-updateHomeStats();
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+// ════════════════════════════
+//  INITIALIZATION
+// ════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderGuests();
+  renderExpenses();
+  renderClothing();
+  renderFood();
+  renderDecoration();
+  updateHomeStats();
+});
+
+// Close modal on overlay click
+document.getElementById('editModal').addEventListener('click', (e) => {
+  if (e.target.id === 'editModal') closeModal();
+});
 </script>
 </body>
 </html>
