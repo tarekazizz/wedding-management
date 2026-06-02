@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wedding Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cinzel:wght@400;600&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8d5a3;
+    --gold-dark: #8b6914;
+    --cream: #fdf8f0;
+    --cream-dark: #f5ead6;
+    --brown: #3d2b1f;
+    --brown-light: #6b4c35;
+    --rose: #c97d7d;
+    --rose-light: #f0d0d0;
+    --green: #4a7c5c;
+    --sidebar-w: 240px;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Lato', sans-serif;
+    background: var(--cream);
+    color: var(--brown);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--brown);
+    position: fixed;
+    top: 0; left: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    overflow: hidden;
+  }
+  #sidebar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent, transparent 20px,
+      rgba(201,168,76,.04) 20px, rgba(201,168,76,.04) 21px
+    );
+    pointer-events: none;
+  }
+  .sidebar-brand {
+    padding: 28px 20px 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(201,168,76,.25);
+  }
+  .sidebar-brand .bismillah {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--gold-light);
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    opacity: .8;
+  }
+  .sidebar-brand h1 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 14px;
+    letter-spacing: 2px;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+  .sidebar-brand .ornament {
+    color: var(--gold);
+    font-size: 20px;
+    margin-top: 8px;
+    opacity: .6;
+  }
+  nav { flex: 1; padding: 16px 0; }
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 22px;
+    color: var(--gold-light);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: .5px;
+    transition: all .2s;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+  }
+  nav a:hover { background: rgba(201,168,76,.1); color: var(--gold); }
+  nav a.active {
+    background: rgba(201,168,76,.15);
+    color: var(--gold);
+    border-left-color: var(--gold);
+  }
+  nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(201,168,76,.15);
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: rgba(201,168,76,.5);
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  /* ── MAIN ── */
+  main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-height: 100vh;
+  }
+
+  /* ── PAGE SECTIONS ── */
+  .page { display: none; min-height: 100vh; }
+  .page.active { display: block; }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    background: var(--brown);
+    padding: 28px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .page-header h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 22px;
+    letter-spacing: 3px;
+  }
+  .page-header p {
+    color: var(--gold-light);
+    font-size: 13px;
+    opacity: .7;
+    margin-top: 4px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+  }
+
+  .page-body { padding: 32px 40px; }
+
+  /* ── HOME ── */
+  #page-home {
+    background: var(--brown);
+    color: var(--cream);
+    position: relative;
+    overflow: hidden;
+  }
+  #page-home::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 70% 30%, rgba(201,168,76,.12) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 50% at 20% 70%, rgba(201,120,120,.08) 0%, transparent 50%);
+  }
+  .home-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    text-align: center;
+  }
+  .home-ornament {
+    font-size: 36px;
+    color: var(--gold);
+    opacity: .7;
+    margin-bottom: 16px;
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)}
+  }
+  .home-bismillah {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--gold-light);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .home-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(28px, 5vw, 44px);
+    color: var(--gold);
+    letter-spacing: 4px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .home-subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--gold-light);
+    opacity: .8;
+    margin-bottom: 48px;
+  }
+  .quote-cards {
+    display: grid;
+    gap: 20px;
+    margin-bottom: 48px;
+  }
+  .quote-card {
+    background: rgba(201,168,76,.08);
+    border: 1px solid rgba(201,168,76,.2);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    text-align: left;
+    position: relative;
+    animation: fadeUp .6s ease both;
+  }
+  .quote-card:nth-child(1){animation-delay:.1s}
+  .quote-card:nth-child(2){animation-delay:.2s}
+  .quote-card:nth-child(3){animation-delay:.3s}
+  @keyframes fadeUp {
+    from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)}
+  }
+  .quote-card .q-label {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .quote-card .q-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--cream);
+    line-height: 1.7;
+  }
+  .quote-card .q-source {
+    font-size: 12px;
+    color: var(--gold-light);
+    opacity: .6;
+    margin-top: 8px;
+  }
+  .home-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .stat-box {
+    background: rgba(201,168,76,.1);
+    border: 1px solid rgba(201,168,76,.15);
+    border-radius: var(--radius);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .stat-box:hover {
+    background: rgba(201,168,76,.18);
+    transform: translateY(-2px);
+  }
+  .stat-box .stat-val {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .stat-box .stat-label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--gold-light);
+    opacity: .7;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    color: var(--cream);
+    border: none;
+    padding: 13px 28px;
+    border-radius: 50px;
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all .2s;
+    text-transform: uppercase;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,168,76,.3); }
+
+  /* ── CARDS / FORMS ── */
+  .card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 16px rgba(61,43,31,.06);
+    padding: 28px;
+    margin-bottom: 24px;
+    border: 1px solid rgba(201,168,76,.1);
+  }
+  .card h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--brown);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--cream-dark);
+    text-transform: uppercase;
+  }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--brown-light); }
+  .form-group input, .form-group select, .form-group textarea {
+    border: 1.5px solid var(--cream-dark);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Lato', sans-serif;
+    font-size: 14px;
+    color: var(--brown);
+    background: var(--cream);
+    transition: border-color .2s;
+    outline: none;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--gold);
+    background: white;
+  }
+  .btn-add {
+    background: var(--brown);
+    color: var(--gold);
+    border: none;
+    padding: 11px 24px;
+    border-radius: 8px;
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all .2s;
+    text-transform: uppercase;
+  }
+  .btn-add:hover { background: var(--brown-light); }
+  .btn-sm {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Lato', sans-serif;
+    transition: all .15s;
+  }
+  .btn-edit { background: var(--gold-light); color: var(--brown); }
+  .btn-edit:hover { background: var(--gold); }
+  .btn-del { background: #fde8e8; color: #c0392b; }
+  .btn-del:hover { background: #f9c0c0; }
+  .btn-print {
+    background: var(--green);
+    color: white;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: .5px;
+    transition: all .2s;
+    margin-left: 8px;
+  }
+  .btn-print:hover { opacity: .85; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead tr {
+    background: var(--brown);
+  }
+  thead th {
+    padding: 11px 14px;
+    text-align: left;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 400;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--cream-dark);
+    transition: background .15s;
+  }
+  tbody tr:hover { background: #fdf5e8; }
+  tbody td { padding: 10px 14px; color: var(--brown); vertical-align: middle; }
+  tbody td .actions { display: flex; gap: 6px; }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .badge-clothing { background: #ede0ff; color: #6c3fc5; }
+  .badge-food { background: #ffecd5; color: #b36200; }
+  .badge-decoration { background: #d5f2e0; color: #1a6b3c; }
+  .badge-custom { background: var(--rose-light); color: #8b3030; }
+
+  /* ── SUMMARY BAR ── */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-item {
+    background: white;
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    border: 1px solid rgba(201,168,76,.12);
+    box-shadow: 0 2px 12px rgba(61,43,31,.05);
+  }
+  .summary-item .s-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--brown-light); margin-bottom: 6px; }
+  .summary-item .s-val { font-family: 'Cinzel', serif; font-size: 22px; color: var(--brown); }
+  .summary-item .s-val span { font-size: 13px; color: var(--gold-dark); }
+
+  /* ── CHART ── */
+  .chart-wrap { max-width: 360px; margin: 0 auto; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--brown-light);
+    opacity: .5;
+  }
+  .empty-state .e-icon { font-size: 36px; margin-bottom: 8px; }
+  .empty-state p { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px; }
+
+  /* ── DATE BADGE ── */
+  .date-badge { font-size: 11px; color: var(--brown-light); opacity: .7; }
+
+  /* ── MODAL EDIT ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(61,43,31,.5);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 60px rgba(61,43,31,.2);
+    animation: popIn .2s ease;
+  }
+  @keyframes popIn { from{transform:scale(.95);opacity:0} to{transform:scale(1);opacity:1} }
+  .modal h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    letter-spacing: 2px;
+    color: var(--brown);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-cancel {
+    background: var(--cream-dark);
+    color: var(--brown);
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+  }
+  .btn-save {
+    background: var(--brown);
+    color: var(--gold);
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    #sidebar, .btn-add, .btn-edit, .btn-del, .btn-print, .page-header, .card:first-child { display: none !important; }
+    main { margin-left: 0 !important; }
+    .page { display: block !important; }
+    .page:not(.active) { display: none !important; }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media(max-width: 640px) {
+    :root { --sidebar-w: 60px; }
+    nav a span { display: none; }
+    .sidebar-brand h1, .sidebar-brand .bismillah, .sidebar-footer { display: none; }
+    .page-body { padding: 20px 16px; }
+    .home-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .section-actions { display: flex; align-items: center; margin-bottom: 20px; }
+  .section-actions h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: var(--brown);
+    text-transform: uppercase;
+    flex: 1;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside id="sidebar">
+  <div class="sidebar-brand">
+    <div class="bismillah">بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيْم</div>
+    <h1>Wedding<br>Manager</h1>
+    <div class="ornament">✦ ✦ ✦</div>
+  </div>
+  <nav>
+    <a class="active" data-page="home"><span class="icon">🏡</span><span>Home</span></a>
+    <a data-page="guests"><span class="icon">👥</span><span>Guests</span></a>
+    <a data-page="expenses"><span class="icon">📊</span><span>Expenses</span></a>
+    <a data-page="clothing"><span class="icon">👗</span><span>Clothing</span></a>
+    <a data-page="food"><span class="icon">🍽️</span><span>Food</span></a>
+    <a data-page="decoration"><span class="icon">🌸</span><span>Decoration</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    "And among His signs is that He created for you mates from among yourselves"<br>— Quran 30:21
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<main>
+
+  <!-- ── HOME ── -->
+  <section id="page-home" class="page active">
+    <div class="home-inner">
+      <div class="home-ornament">❧</div>
+      <div class="home-bismillah">بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيْم</div>
+      <h1 class="home-title">Wedding<br>Management</h1>
+      <p class="home-subtitle">Plan your blessed union with grace & ease</p>
+
+      <div class="home-stats">
+        <div class="stat-box" onclick="goPage('guests')">
+          <div class="stat-val" id="stat-guests">0</div>
+          <div class="stat-label">Guests</div>
+        </div>
+        <div class="stat-box" onclick="goPage('expenses')">
+          <div class="stat-val" id="stat-expenses">৳0</div>
+          <div class="stat-label">Total Expense</div>
+        </div>
+        <div class="stat-box" onclick="goPage('food')">
+          <div class="stat-val" id="stat-food">0</div>
+          <div class="stat-label">Menu Items</div>
+        </div>
+      </div>
+
+      <div class="quote-cards">
+        <div class="quote-card">
+          <div class="q-label">Hadith</div>
+          <div class="q-text">"When a man marries, he has fulfilled half of his religion, so let him fear Allah in the remaining half."</div>
+          <div class="q-source">— Bayhaqi, Shu'ab al-Iman</div>
+        </div>
+        <div class="quote-card">
+          <div class="q-label">Quran</div>
+          <div class="q-text">"And He placed between you affection and mercy. Indeed in that are signs for a people who give thought."</div>
+          <div class="q-source">— Surah Ar-Rum, 30:21</div>
+        </div>
+        <div class="quote-card">
+          <div class="q-label">Hadith</div>
+          <div class="q-text">"The best of you are those who are best to their wives."</div>
+          <div class="q-source">— Tirmidhi</div>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="goPage('guests')">✦ Start Planning</button>
+    </div>
+  </section>
+
+  <!-- ── GUESTS ── -->
+  <section id="page-guests" class="page">
+    <div class="page-header">
+      <h2>Guest Management</h2>
+      <p>Record and manage your wedding guests</p>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <h3>Add Guest</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Guest Name</label>
+            <input type="text" id="g-name" placeholder="Full name">
+          </div>
+          <div class="form-group">
+            <label>Family Members</label>
+            <input type="number" id="g-family" placeholder="e.g. 4" min="1">
+          </div>
+          <div class="form-group">
+            <label>Phone (optional)</label>
+            <input type="text" id="g-phone" placeholder="+880...">
+          </div>
+          <div class="form-group">
+            <label>Relation</label>
+            <select id="g-relation">
+              <option value="Family">Family</option>
+              <option value="Friend">Friend</option>
+              <option value="Colleague">Colleague</option>
+              <option value="Neighbor">Neighbor</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-add" onclick="addGuest()">+ Add Guest</button>
+      </div>
+
+      <div class="summary-bar">
+        <div class="summary-item">
+          <div class="s-label">Total Guests</div>
+          <div class="s-val" id="g-total-guests">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Total Members</div>
+          <div class="s-val" id="g-total-members">0</div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div style="padding:20px 28px; display:flex; align-items:center; gap:12px;">
+          <h3 style="margin:0;border:none;padding:0;flex:1">Guest List</h3>
+          <button class="btn-print" onclick="printSection('guests')">🖨 Print</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Name</th><th>Relation</th><th>Family</th><th>Phone</th><th>Date Added</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="guests-tbody"></tbody>
+          </table>
+          <div id="guests-empty" class="empty-state" style="display:none">
+            <div class="e-icon">👥</div>
+            <p>No guests added yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── EXPENSES ── -->
+  <section id="page-expenses" class="page">
+    <div class="page-header">
+      <h2>Expense Tracking</h2>
+      <p>Monitor and visualize all wedding costs</p>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <h3>Add Expense</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="e-desc" placeholder="Expense description">
+          </div>
+          <div class="form-group">
+            <label>Amount (৳)</label>
+            <input type="number" id="e-amount" placeholder="0.00" min="0">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="e-cat">
+              <option value="Clothing">Clothing</option>
+              <option value="Food">Food</option>
+              <option value="Decoration">Decoration</option>
+              <option value="Venue">Venue</option>
+              <option value="Photography">Photography</option>
+              <option value="Transport">Transport</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          <div class="form-group" id="e-custom-wrap" style="display:none">
+            <label>Custom Category</label>
+            <input type="text" id="e-custom" placeholder="Category name">
+          </div>
+        </div>
+        <button class="btn-add" onclick="addExpense()">+ Add Expense</button>
+      </div>
+
+      <div class="summary-bar">
+        <div class="summary-item">
+          <div class="s-label">Total</div>
+          <div class="s-val"><span>৳</span><span id="e-total">0</span></div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Clothing</div>
+          <div class="s-val"><span>৳</span><span id="e-clothing-sum">0</span></div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Food</div>
+          <div class="s-val"><span>৳</span><span id="e-food-sum">0</span></div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Decoration</div>
+          <div class="s-val"><span>৳</span><span id="e-deco-sum">0</span></div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr auto; gap:24px; align-items:start; flex-wrap:wrap;">
+        <div class="card" style="padding:0">
+          <div style="padding:20px 28px;display:flex;align-items:center;gap:12px;">
+            <h3 style="margin:0;border:none;padding:0;flex:1">Expense Records</h3>
+            <button class="btn-print" onclick="printSection('expenses')">🖨 Print</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Description</th><th>Category</th><th>Amount</th><th>Date</th><th>Actions</th></tr></thead>
+              <tbody id="expenses-tbody"></tbody>
+            </table>
+            <div id="expenses-empty" class="empty-state" style="display:none">
+              <div class="e-icon">📊</div><p>No expenses recorded yet</p>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="min-width:220px">
+          <h3>Distribution</h3>
+          <div class="chart-wrap"><canvas id="expenseChart"></canvas></div>
+          <div id="chart-empty" style="text-align:center;color:#aaa;font-style:italic;font-size:13px;padding:20px">Add expenses to see chart</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CLOTHING ── -->
+  <section id="page-clothing" class="page">
+    <div class="page-header">
+      <h2>Clothing Expenses</h2>
+      <p>Track wedding attire and clothing purchases</p>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <h3>Add Clothing Item</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="cl-name" placeholder="e.g. Bridal Saree">
+          </div>
+          <div class="form-group">
+            <label>For Whom</label>
+            <input type="text" id="cl-for" placeholder="e.g. Bride, Groom">
+          </div>
+          <div class="form-group">
+            <label>Quantity</label>
+            <input type="number" id="cl-qty" placeholder="1" min="1" value="1">
+          </div>
+          <div class="form-group">
+            <label>Cost per Unit (৳)</label>
+            <input type="number" id="cl-cost" placeholder="0.00" min="0">
+          </div>
+        </div>
+        <button class="btn-add" onclick="addClothing()">+ Add Item</button>
+      </div>
+
+      <div class="summary-bar">
+        <div class="summary-item">
+          <div class="s-label">Total Items</div>
+          <div class="s-val" id="cl-total-items">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Total Cost</div>
+          <div class="s-val"><span>৳</span><span id="cl-total-cost">0</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div style="padding:20px 28px;display:flex;align-items:center;gap:12px;">
+          <h3 style="margin:0;border:none;padding:0;flex:1">Clothing List</h3>
+          <button class="btn-print" onclick="printSection('clothing')">🖨 Print</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Item</th><th>For Whom</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="clothing-tbody"></tbody>
+          </table>
+          <div id="clothing-empty" class="empty-state" style="display:none">
+            <div class="e-icon">👗</div><p>No clothing items added yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOD ── -->
+  <section id="page-food" class="page">
+    <div class="page-header">
+      <h2>Food Management</h2>
+      <p>Manage wedding menu and food expenses</p>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <h3>Add Food / Menu Item</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="f-name" placeholder="e.g. Biryani">
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="f-type">
+              <option value="Main Course">Main Course</option>
+              <option value="Starter">Starter</option>
+              <option value="Dessert">Dessert</option>
+              <option value="Beverage">Beverage</option>
+              <option value="Snack">Snack</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Portions / Kg</label>
+            <input type="number" id="f-qty" placeholder="e.g. 100" min="0">
+          </div>
+          <div class="form-group">
+            <label>Cost (৳)</label>
+            <input type="number" id="f-cost" placeholder="0.00" min="0">
+          </div>
+        </div>
+        <button class="btn-add" onclick="addFood()">+ Add Item</button>
+      </div>
+
+      <div class="summary-bar">
+        <div class="summary-item">
+          <div class="s-label">Menu Items</div>
+          <div class="s-val" id="f-total-items">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Total Food Cost</div>
+          <div class="s-val"><span>৳</span><span id="f-total-cost">0</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div style="padding:20px 28px;display:flex;align-items:center;gap:12px;">
+          <h3 style="margin:0;border:none;padding:0;flex:1">Menu & Food List</h3>
+          <button class="btn-print" onclick="printSection('food')">🖨 Print</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Item</th><th>Type</th><th>Qty</th><th>Cost (৳)</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="food-tbody"></tbody>
+          </table>
+          <div id="food-empty" class="empty-state" style="display:none">
+            <div class="e-icon">🍽️</div><p>No food items added yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── DECORATION ── -->
+  <section id="page-decoration" class="page">
+    <div class="page-header">
+      <h2>Decoration Management</h2>
+      <p>Track all decoration items and expenses</p>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <h3>Add Decoration Item</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="d-name" placeholder="e.g. Flower Arch">
+          </div>
+          <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="d-location" placeholder="e.g. Stage, Entrance">
+          </div>
+          <div class="form-group">
+            <label>Quantity</label>
+            <input type="number" id="d-qty" placeholder="1" min="1" value="1">
+          </div>
+          <div class="form-group">
+            <label>Cost (৳)</label>
+            <input type="number" id="d-cost" placeholder="0.00" min="0">
+          </div>
+        </div>
+        <button class="btn-add" onclick="addDecoration()">+ Add Item</button>
+      </div>
+
+      <div class="summary-bar">
+        <div class="summary-item">
+          <div class="s-label">Total Items</div>
+          <div class="s-val" id="d-total-items">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="s-label">Total Cost</div>
+          <div class="s-val"><span>৳</span><span id="d-total-cost">0</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div style="padding:20px 28px;display:flex;align-items:center;gap:12px;">
+          <h3 style="margin:0;border:none;padding:0;flex:1">Decoration List</h3>
+          <button class="btn-print" onclick="printSection('decoration')">🖨 Print</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Item</th><th>Location</th><th>Qty</th><th>Cost (৳)</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="decoration-tbody"></tbody>
+          </table>
+          <div id="decoration-empty" class="empty-state" style="display:none">
+            <div class="e-icon">🌸</div><p>No decoration items added yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3 id="modal-title">Edit Record</h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════
+//  DATA STORE
+// ════════════════════════════
+let db = {
+  guests:     JSON.parse(localStorage.getItem('wms_guests'))     || [],
+  expenses:   JSON.parse(localStorage.getItem('wms_expenses'))   || [],
+  clothing:   JSON.parse(localStorage.getItem('wms_clothing'))   || [],
+  food:       JSON.parse(localStorage.getItem('wms_food'))       || [],
+  decoration: JSON.parse(localStorage.getItem('wms_decoration')) || [],
+};
+function save(key){ localStorage.setItem('wms_'+key, JSON.stringify(db[key])); }
+function ts(){ return new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function fmtNum(n){ return Number(n).toLocaleString(); }
+
+// ════════════════════════════
+//  NAVIGATION
+// ════════════════════════════
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelector(`nav a[data-page="${id}"]`).classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='home') updateHomeStats();
+  if(id==='expenses') renderExpenseChart();
+}
+document.querySelectorAll('nav a').forEach(a=>{
+  a.addEventListener('click',()=>goPage(a.dataset.page));
+});
+
+// ════════════════════════════
+//  HOME STATS
+// ════════════════════════════
+function updateHomeStats(){
+  document.getElementById('stat-guests').textContent = db.guests.length;
+  const total = db.expenses.reduce((s,e)=>s+Number(e.amount),0)
+              + db.clothing.reduce((s,e)=>s+Number(e.qty)*Number(e.cost),0)
+              + db.food.reduce((s,e)=>s+Number(e.cost),0)
+              + db.decoration.reduce((s,e)=>s+Number(e.cost),0);
+  document.getElementById('stat-expenses').textContent = '৳'+fmtNum(total);
+  document.getElementById('stat-food').textContent = db.food.length;
+}
+
+// ════════════════════════════
+//  GUESTS
+// ════════════════════════════
+function addGuest(){
+  const name=document.getElementById('g-name').value.trim();
+  const fam=document.getElementById('g-family').value||1;
+  const phone=document.getElementById('g-phone').value.trim();
+  const rel=document.getElementById('g-relation').value;
+  if(!name){alert('Please enter guest name');return;}
+  db.guests.push({id:Date.now(),name,family:Number(fam),phone,relation:rel,date:ts()});
+  save('guests'); renderGuests();
+  ['g-name','g-phone'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('g-family').value='';
+}
+function renderGuests(){
+  const tb=document.getElementById('guests-tbody');
+  const empty=document.getElementById('guests-empty');
+  if(!db.guests.length){tb.innerHTML='';empty.style.display='block';
+    document.getElementById('g-total-guests').textContent='0';
+    document.getElementById('g-total-members').textContent='0'; return;}
+  empty.style.display='none';
+  const totalFam=db.guests.reduce((s,g)=>s+Number(g.family),0);
+  document.getElementById('g-total-guests').textContent=db.guests.length;
+  document.getElementById('g-total-members').textContent=totalFam;
+  tb.innerHTML=db.guests.map((g,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${g.name}</strong></td>
+      <td>${g.relation}</td>
+      <td>${g.family}</td>
+      <td>${g.phone||'—'}</td>
+      <td class="date-badge">${g.date}</td>
+      <td><div class="actions">
+        <button class="btn-sm btn-edit" onclick="editGuest(${g.id})">Edit</button>
+        <button class="btn-sm btn-del" onclick="delGuest(${g.id})">Del</button>
+      </div></td>
+    </tr>`).join('');
+}
+function delGuest(id){
+  if(!confirm('Delete this guest?'))return;
+  db.guests=db.guests.filter(g=>g.id!==id); save('guests'); renderGuests();
+}
+
+// ════════════════════════════
+//  EXPENSES
+// ════════════════════════════
+document.getElementById('e-cat').addEventListener('change',function(){
+  document.getElementById('e-custom-wrap').style.display=this.value==='Custom'?'block':'none';
+});
+function addExpense(){
+  const desc=document.getElementById('e-desc').value.trim();
+  const amount=document.getElementById('e-amount').value;
+  let cat=document.getElementById('e-cat').value;
+  if(cat==='Custom') cat=document.getElementById('e-custom').value.trim()||'Custom';
+  if(!desc||!amount){alert('Please fill description and amount');return;}
+  db.expenses.push({id:Date.now(),desc,amount:Number(amount),cat,date:ts()});
+  save('expenses'); renderExpenses();
+  document.getElementById('e-desc').value=''; document.getElementById('e-amount').value='';
+}
+function renderExpenses(){
+  const tb=document.getElementById('expenses-tbody');
+  const empty=document.getElementById('expenses-empty');
+  if(!db.expenses.length){tb.innerHTML='';empty.style.display='block';
+    ['e-total','e-clothing-sum','e-food-sum','e-deco-sum'].forEach(id=>document.getElementById(id).textContent='0');
+    renderExpenseChart(); return;}
+  empty.style.display='none';
+  const total=db.expenses.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('e-total').textContent=fmtNum(total);
+  document.getElementById('e-clothing-sum').textContent=fmtNum(db.expenses.filter(e=>e.cat==='Clothing').reduce((s,e)=>s+e.amount,0));
+  document.getElementById('e-food-sum').textContent=fmtNum(db.expenses.filter(e=>e.cat==='Food').reduce((s,e)=>s+e.amount,0));
+  document.getElementById('e-deco-sum').textContent=fmtNum(db.expenses.filter(e=>e.cat==='Decoration').reduce((s,e)=>s+e.amount,0));
+  const badgeClass={'Clothing':'badge-clothing','Food':'badge-food','Decoration':'badge-decoration'};
+  tb.innerHTML=db.expenses.map((e,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${e.desc}</td>
+      <td><span class="badge ${badgeClass[e.cat]||'badge-custom'}">${e.cat}</span></td>
+      <td><strong>৳${fmtNum(e.amount)}</strong></td>
+      <td class="date-badge">${e.date}</td>
+      <td><div class="actions">
+        <button class="btn-sm btn-edit" onclick="editExpense(${e.id})">Edit</button>
+        <button class="btn-sm btn-del" onclick="delExpense(${e.id})">Del</button>
+      </div></td>
+    </tr>`).join('');
+  renderExpenseChart();
+}
+function delExpense(id){
+  if(!confirm('Delete this expense?'))return;
+  db.expenses=db.expenses.filter(e=>e.id!==id); save('expenses'); renderExpenses();
+}
+let expChart=null;
+function renderExpenseChart(){
+  const canvas=document.getElementById('expenseChart');
+  const chartEmpty=document.getElementById('chart-empty');
+  if(!db.expenses.length){canvas.style.display='none';chartEmpty.style.display='block';return;}
+  canvas.style.display='block';chartEmpty.style.display='none';
+  const catMap={};
+  db.expenses.forEach(e=>{ catMap[e.cat]=(catMap[e.cat]||0)+e.amount; });
+  const labels=Object.keys(catMap);
+  const data=Object.values(catMap);
+  const colors=['#c9a84c','#c97d7d','#4a7c5c','#7d9cc9','#9c7dc9','#c9bb7d','#7dc9c9'];
+  if(expChart){expChart.destroy();}
+  expChart=new Chart(canvas,{
+    type:'pie',
+    data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},
+    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Lato',size:11},padding:10}}},animation:{duration:500}}
+  });
+}
+
+// ════════════════════════════
+//  CLOTHING
+// ════════════════════════════
+function addClothing(){
+  const name=document.getElementById('cl-name').value.trim();
+  const forWho=document.getElementById('cl-for').value.trim();
+  const qty=document.getElementById('cl-qty').value||1;
+  const cost=document.getElementById('cl-cost').value;
+  if(!name||!cost){alert('Please fill item name and cost');return;}
+  db.clothing.push({id:Date.now(),name,forWho,qty:Number(qty),cost:Number(cost),date:ts()});
+  save('clothing'); renderClothing();
+  ['cl-name','cl-for','cl-cost'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cl-qty').value='1';
+}
+function renderClothing(){
+  const tb=document.getElementById('clothing-tbody');
+  const empty=document.getElementById('clothing-empty');
+  if(!db.clothing.length){tb.innerHTML='';empty.style.display='block';
+    document.getElementById('cl-total-items').textContent='0';
+    document.getElementById('cl-total-cost').textContent='0'; return;}
+  empty.style.display='none';
+  const total=db.clothing.reduce((s,c)=>s+c.qty*c.cost,0);
+  document.getElementById('cl-total-items').textContent=db.clothing.length;
+  document.getElementById('cl-total-cost').textContent=fmtNum(total);
+  tb.innerHTML=db.clothing.map((c,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.forWho||'—'}</td>
+      <td>${c.qty}</td>
+      <td>৳${fmtNum(c.cost)}</td>
+      <td><strong>৳${fmtNum(c.qty*c.cost)}</strong></td>
+      <td class="date-badge">${c.date}</td>
+      <td><div class="actions">
+        <button class="btn-sm btn-edit" onclick="editClothing(${c.id})">Edit</button>
+        <button class="btn-sm btn-del" onclick="delClothing(${c.id})">Del</button>
+      </div></td>
+    </tr>`).join('');
+}
+function delClothing(id){
+  if(!confirm('Delete this item?'))return;
+  db.clothing=db.clothing.filter(c=>c.id!==id); save('clothing'); renderClothing();
+}
+
+// ════════════════════════════
+//  FOOD
+// ════════════════════════════
+function addFood(){
+  const name=document.getElementById('f-name').value.trim();
+  const type=document.getElementById('f-type').value;
+  const qty=document.getElementById('f-qty').value||0;
+  const cost=document.getElementById('f-cost').value||0;
+  if(!name){alert('Please enter item name');return;}
+  db.food.push({id:Date.now(),name,type,qty:Number(qty),cost:Number(cost),date:ts()});
+  save('food'); renderFood();
+  ['f-name','f-qty','f-cost'].forEach(id=>document.getElementById(id).value='');
+}
+function renderFood(){
+  const tb=document.getElementById('food-tbody');
+  const empty=document.getElementById('food-empty');
+  if(!db.food.length){tb.innerHTML='';empty.style.display='block';
+    document.getElementById('f-total-items').textContent='0';
+    document.getElementById('f-total-cost').textContent='0'; return;}
+  empty.style.display='none';
+  const total=db.food.reduce((s,f)=>s+f.cost,0);
+  document.getElementById('f-total-items').textContent=db.food.length;
+  document.getElementById('f-total-cost').textContent=fmtNum(total);
+  tb.innerHTML=db.food.map((f,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${f.name}</strong></td>
+      <td><span class="badge badge-food">${f.type}</span></td>
+      <td>${f.qty||'—'}</td>
+      <td>৳${fmtNum(f.cost)}</td>
+      <td class="date-badge">${f.date}</td>
+      <td><div class="actions">
+        <button class="btn-sm btn-edit" onclick="editFood(${f.id})">Edit</button>
+        <button class="btn-sm btn-del" onclick="delFood(${f.id})">Del</button>
+      </div></td>
+    </tr>`).join('');
+}
+function delFood(id){
+  if(!confirm('Delete this item?'))return;
+  db.food=db.food.filter(f=>f.id!==id); save('food'); renderFood();
+}
+
+// ════════════════════════════
+//  DECORATION
+// ════════════════════════════
+function addDecoration(){
+  const name=document.getElementById('d-name').value.trim();
+  const location=document.getElementById('d-location').value.trim();
+  const qty=document.getElementById('d-qty').value||1;
+  const cost=document.getElementById('d-cost').value||0;
+  if(!name){alert('Please enter item name');return;}
+  db.decoration.push({id:Date.now(),name,location,qty:Number(qty),cost:Number(cost),date:ts()});
+  save('decoration'); renderDecoration();
+  ['d-name','d-location','d-cost'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('d-qty').value='1';
+}
+function renderDecoration(){
+  const tb=document.getElementById('decoration-tbody');
+  const empty=document.getElementById('decoration-empty');
+  if(!db.decoration.length){tb.innerHTML='';empty.style.display='block';
+    document.getElementById('d-total-items').textContent='0';
+    document.getElementById('d-total-cost').textContent='0'; return;}
+  empty.style.display='none';
+  const total=db.decoration.reduce((s,d)=>s+d.cost,0);
+  document.getElementById('d-total-items').textContent=db.decoration.length;
+  document.getElementById('d-total-cost').textContent=fmtNum(total);
+  tb.innerHTML=db.decoration.map((d,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${d.name}</strong></td>
+      <td>${d.location||'—'}</td>
+      <td>${d.qty}</td>
+      <td>৳${fmtNum(d.cost)}</td>
+      <td class="date-badge">${d.date}</td>
+      <td><div class="actions">
+        <button class="btn-sm btn-edit" onclick="editDecoration(${d.id})">Edit</button>
+        <button class="btn-sm btn-del" onclick="delDecoration(${d.id})">Del</button>
+      </div></td>
+    </tr>`).join('');
+}
+function delDecoration(id){
+  if(!confirm('Delete this item?'))return;
+  db.decoration=db.decoration.filter(d=>d.id!==id); save('decoration'); renderDecoration();
+}
+
+// ════════════════════════════
+//  MODAL EDIT SYSTEM
+// ════════════════════════════
+let editState={type:null,id:null};
+function openModal(type,id){ editState={type,id}; document.getElementById('editModal').classList.add('open'); }
+function closeModal(){ document.getElementById('editModal').classList.remove('open'); }
+
+function editGuest(id){
+  const g=db.guests.find(x=>x.id===id);
+  document.getElementById('modal-title').textContent='Edit Guest';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-grid">
+      <div class="form-group"><label>Name</label><input id="m-name" value="${g.name}"></div>
+      <div class="form-group"><label>Family Members</label><input type="number" id="m-family" value="${g.family}"></div>
+      <div class="form-group"><label>Phone</label><input id="m-phone" value="${g.phone||''}"></div>
+      <div class="form-group"><label>Relation</label>
+        <select id="m-relation">
+          ${['Family','Friend','Colleague','Neighbor','Other'].map(r=>`<option value="${r}" ${g.relation===r?'selected':''}>${r}</option>`).join('')}
+        </select></div>
+    </div>`;
+  openModal('guest',id);
+}
+function editExpense(id){
+  const e=db.expenses.find(x=>x.id===id);
+  document.getElementById('modal-title').textContent='Edit Expense';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-grid">
+      <div class="form-group"><label>Description</label><input id="m-desc" value="${e.desc}"></div>
+      <div class="form-group"><label>Amount (৳)</label><input type="number" id="m-amount" value="${e.amount}"></div>
+      <div class="form-group"><label>Category</label><input id="m-cat" value="${e.cat}"></div>
+    </div>`;
+  openModal('expense',id);
+}
+function editClothing(id){
+  const c=db.clothing.find(x=>x.id===id);
+  document.getElementById('modal-title').textContent='Edit Clothing Item';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-grid">
+      <div class="form-group"><label>Item Name</label><input id="m-name" value="${c.name}"></div>
+      <div class="form-group"><label>For Whom</label><input id="m-for" value="${c.forWho}"></div>
+      <div class="form-group"><label>Quantity</label><input type="number" id="m-qty" value="${c.qty}"></div>
+      <div class="form-group"><label>Cost (৳)</label><input type="number" id="m-cost" value="${c.cost}"></div>
+    </div>`;
+  openModal('clothing',id);
+}
+function editFood(id){
+  const f=db.food.find(x=>x.id===id);
+  document.getElementById('modal-title').textContent='Edit Food Item';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-grid">
+      <div class="form-group"><label>Item Name</label><input id="m-name" value="${f.name}"></div>
+      <div class="form-group"><label>Qty/Kg</label><input type="number" id="m-qty" value="${f.qty}"></div>
+      <div class="form-group"><label>Cost (৳)</label><input type="number" id="m-cost" value="${f.cost}"></div>
+    </div>`;
+  openModal('food',id);
+}
+function editDecoration(id){
+  const d=db.decoration.find(x=>x.id===id);
+  document.getElementById('modal-title').textContent='Edit Decoration Item';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-grid">
+      <div class="form-group"><label>Item Name</label><input id="m-name" value="${d.name}"></div>
+      <div class="form-group"><label>Location</label><input id="m-location" value="${d.location}"></div>
+      <div class="form-group"><label>Qty</label><input type="number" id="m-qty" value="${d.qty}"></div>
+      <div class="form-group"><label>Cost (৳)</label><input type="number" id="m-cost" value="${d.cost}"></div>
+    </div>`;
+  openModal('decoration',id);
+}
+
+function saveEdit(){
+  const {type,id}=editState;
+  if(type==='guest'){
+    const g=db.guests.find(x=>x.id===id);
+    g.name=document.getElementById('m-name').value;
+    g.family=Number(document.getElementById('m-family').value);
+    g.phone=document.getElementById('m-phone').value;
+    g.relation=document.getElementById('m-relation').value;
+    save('guests'); renderGuests();
+  } else if(type==='expense'){
+    const e=db.expenses.find(x=>x.id===id);
+    e.desc=document.getElementById('m-desc').value;
+    e.amount=Number(document.getElementById('m-amount').value);
+    e.cat=document.getElementById('m-cat').value;
+    save('expenses'); renderExpenses();
+  } else if(type==='clothing'){
+    const c=db.clothing.find(x=>x.id===id);
+    c.name=document.getElementById('m-name').value;
+    c.forWho=document.getElementById('m-for').value;
+    c.qty=Number(document.getElementById('m-qty').value);
+    c.cost=Number(document.getElementById('m-cost').value);
+    save('clothing'); renderClothing();
+  } else if(type==='food'){
+    const f=db.food.find(x=>x.id===id);
+    f.name=document.getElementById('m-name').value;
+    f.qty=Number(document.getElementById('m-qty').value);
+    f.cost=Number(document.getElementById('m-cost').value);
+    save('food'); renderFood();
+  } else if(type==='decoration'){
+    const d=db.decoration.find(x=>x.id===id);
+    d.name=document.getElementById('m-name').value;
+    d.location=document.getElementById('m-location').value;
+    d.qty=Number(document.getElementById('m-qty').value);
+    d.cost=Number(document.getElementById('m-cost').value);
+    save('decoration'); renderDecoration();
+  }
+  closeModal();
+}
+
+// Close modal on backdrop click
+document.getElementById('editModal').addEventListener('click',function(e){
+  if(e.target===this) closeModal();
+});
+
+// ════════════════════════════
+//  PRINT
+// ════════════════════════════
+function printSection(section){
+  const titles={guests:'Guest List',expenses:'Expense Report',clothing:'Clothing Report',food:'Food & Menu Report',decoration:'Decoration Report'};
+  const data={guests:db.guests,expenses:db.expenses,clothing:db.clothing,food:db.food,decoration:db.decoration};
+  let html=`<html><head><title>${titles[section]}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:30px;color:#333}
+    h1{font-size:22px;margin-bottom:4px;color:#3d2b1f}
+    .sub{color:#888;font-size:13px;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{background:#3d2b1f;color:#c9a84c;padding:8px 12px;text-align:left}
+    td{padding:8px 12px;border-bottom:1px solid #eee}
+    tr:nth-child(even){background:#fdf8f0}
+    .total{margin-top:16px;font-weight:bold;text-align:right;font-size:14px;color:#3d2b1f}
+  </style></head><body>
+  <h1>Wedding Management System — ${titles[section]}</h1>
+  <div class="sub">Printed on: ${new Date().toLocaleString()}</div>`;
+
+  if(section==='guests'){
+    html+=`<table><tr><th>#</th><th>Name</th><th>Relation</th><th>Family</th><th>Phone</th><th>Date</th></tr>`;
+    db.guests.forEach((g,i)=>{html+=`<tr><td>${i+1}</td><td>${g.name}</td><td>${g.relation}</td><td>${g.family}</td><td>${g.phone||'—'}</td><td>${g.date}</td></tr>`;});
+    html+=`</table><div class="total">Total Guests: ${db.guests.length} | Total Members: ${db.guests.reduce((s,g)=>s+g.family,0)}</div>`;
+  } else if(section==='expenses'){
+    html+=`<table><tr><th>#</th><th>Description</th><th>Category</th><th>Amount</th><th>Date</th></tr>`;
+    db.expenses.forEach((e,i)=>{html+=`<tr><td>${i+1}</td><td>${e.desc}</td><td>${e.cat}</td><td>৳${fmtNum(e.amount)}</td><td>${e.date}</td></tr>`;});
+    html+=`</table><div class="total">Total: ৳${fmtNum(db.expenses.reduce((s,e)=>s+e.amount,0))}</div>`;
+  } else if(section==='clothing'){
+    html+=`<table><tr><th>#</th><th>Item</th><th>For</th><th>Qty</th><th>Unit</th><th>Total</th><th>Date</th></tr>`;
+    db.clothing.forEach((c,i)=>{html+=`<tr><td>${i+1}</td><td>${c.name}</td><td>${c.forWho||'—'}</td><td>${c.qty}</td><td>৳${fmtNum(c.cost)}</td><td>৳${fmtNum(c.qty*c.cost)}</td><td>${c.date}</td></tr>`;});
+    html+=`</table><div class="total">Total: ৳${fmtNum(db.clothing.reduce((s,c)=>s+c.qty*c.cost,0))}</div>`;
+  } else if(section==='food'){
+    html+=`<table><tr><th>#</th><th>Item</th><th>Type</th><th>Qty</th><th>Cost</th><th>Date</th></tr>`;
+    db.food.forEach((f,i)=>{html+=`<tr><td>${i+1}</td><td>${f.name}</td><td>${f.type}</td><td>${f.qty||'—'}</td><td>৳${fmtNum(f.cost)}</td><td>${f.date}</td></tr>`;});
+    html+=`</table><div class="total">Total: ৳${fmtNum(db.food.reduce((s,f)=>s+f.cost,0))}</div>`;
+  } else if(section==='decoration'){
+    html+=`<table><tr><th>#</th><th>Item</th><th>Location</th><th>Qty</th><th>Cost</th><th>Date</th></tr>`;
+    db.decoration.forEach((d,i)=>{html+=`<tr><td>${i+1}</td><td>${d.name}</td><td>${d.location||'—'}</td><td>${d.qty}</td><td>৳${fmtNum(d.cost)}</td><td>${d.date}</td></tr>`;});
+    html+=`</table><div class="total">Total: ৳${fmtNum(db.decoration.reduce((s,d)=>s+d.cost,0))}</div>`;
+  }
+  html+=`</body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.print();
+}
+
+// ════════════════════════════
+//  INIT
+// ════════════════════════════
+renderGuests();
+renderExpenses();
+renderClothing();
+renderFood();
+renderDecoration();
+updateHomeStats();
+</script>
+</body>
+</html>
