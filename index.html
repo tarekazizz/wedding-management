@@ -537,10 +537,69 @@
     text-transform: uppercase;
     flex: 1;
   }
+  #menuToggle{
+    display:none;
+    position:fixed;
+    top:15px;
+    left:15px;
+    z-index:999;
+    width:45px;
+    height:45px;
+    border:none;
+    border-radius:8px;
+    background:var(--brown);
+    color:var(--gold);
+    font-size:24px;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,.25);
+}
+
+@media (max-width:768px){
+
+    #menuToggle{
+        display:block;
+    }
+
+    #sidebar{
+        width:250px;
+        transform:translateX(-100%);
+        transition:.3s;
+    }
+
+    #sidebar.show{
+        transform:translateX(0);
+    }
+
+    main{
+        margin-left:0;
+    }
+
+    nav a span{
+        display:inline;
+    }
+
+    .sidebar-brand h1,
+    .sidebar-brand .bismillah,
+    .sidebar-footer{
+        display:block;
+    }
+}
+#overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    z-index:90;
+}
+
+#overlay.show{
+    display:block;
+}
 </style>
 </head>
 <body>
-
+<button id="menuToggle">☰</button>
+<div id="overlay"></div>
 <!-- ══════════ SIDEBAR ══════════ -->
 <aside id="sidebar">
   <div class="sidebar-brand">
@@ -1819,6 +1878,32 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('editModal').addEventListener('click', (e) => {
   if (e.target.id === 'editModal') closeModal();
 });
+const menuBtn = document.getElementById("menuToggle");
+const sidebar = document.getElementById("sidebar");
+
+menuBtn.onclick = () => {
+    sidebar.classList.toggle("show");
+};
+
+// Page change হলে sidebar বন্ধ হবে
+document.querySelectorAll("nav a").forEach(link=>{
+    link.addEventListener("click",()=>{
+        if(window.innerWidth<=768){
+            sidebar.classList.remove("show");
+        }
+    });
+});
+const overlay = document.getElementById("overlay");
+
+menuBtn.onclick = ()=>{
+    sidebar.classList.toggle("show");
+    overlay.classList.toggle("show");
+};
+
+overlay.onclick = ()=>{
+    sidebar.classList.remove("show");
+    overlay.classList.remove("show");
+};
 </script>
 </body>
 </html>
